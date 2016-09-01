@@ -9,13 +9,7 @@ public class Hmm1 {
 
 
     public static void main(String[] args) {
-        //readAndSolve();
-        Matrix a=new Matrix("4 4 0.2 0.5 0.3 0.0 0.1 0.4 0.4 0.1 0.2 0.0 0.4 0.4 0.2 0.3 0.0 0.5");
-        Matrix b=new Matrix("4 3 1.0 0.0 0.0 0.0 1.0 0.0 0.0 0.0 1.0 0.2 0.6 0.2");
-        Matrix pi=new Matrix("1 4 0.0 0.0 0.0 1.0");
-        Matrix piA=pi.multiply(a);
-        Matrix piAB=piA.multiply(b);
-        System.out.println(piAB.string());
+        readAndSolve();
     }
     public static void readAndSolve(){
         Scanner data=new Scanner(System.in);
