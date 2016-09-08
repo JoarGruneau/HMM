@@ -32,26 +32,31 @@ public class HMM4 {
         int[] obs_seq = readObservationSeq(data.nextLine());
         data.close();
 
-        Matrix[] alpha_container = alphaPass(a,b,pi,obs_seq);
-        alpha_container[alpha_container.length-1].printSum();
+        double prob=alphaPass(a,b,pi,obs_seq);
+        System.out.println(prob);
 
     }
 
 
-    public static Matrix[] alphaPass(Matrix a, Matrix b, Matrix pi, int[] obs_seq){
+    public static double alphaPass(Matrix a, Matrix b, Matrix pi, int[] obs_seq){
         Matrix[] alpha_container = new Matrix[obs_seq.length];
-        double[] norm=new double[obs_seq.length];
+        double[] alpha_scale=new double[obs_seq.length];
         alpha_container[0] = pi.multiplyColumn(b, obs_seq[0]); /*initialize alpha 1*/
-        norm[0]=alpha_container[0].sumRow(0);
+        alpha_scale[0]=1/alpha_container[0].sumRow(0);
+        alpha_container[0].scale(alpha_scale[0]);
         for (int i = 1; i<obs_seq.length; i++){
             alpha_container[i] = alpha_container[i-1].multiply(a).
                     multiplyColumn(b, obs_seq[i]);
-            //norm[i]=alpha_container[i].sumRow(0);
-            //System.out.println(norm[i]);
+            alpha_scale[i]=1/alpha_container[i].sumRow(0);
+            alpha_container[i].scale(alpha_scale[i]);
+            
         }
-        
-
-        return alpha_container;
+         double log_probability=0;
+            for(double item:alpha_scale){
+                log_probability=log_probability -Math.log(item);
+                
+            }
+        return Math.exp(log_probability);
     }
 
     public static void betaPass(Matrix a, Matrix b, Matrix pi, int[] obs_seq){
@@ -160,4 +165,11 @@ class Matrix {
         }
         return sum;    
     } 
+    public void scale(double scale){
+        for(int i=0; i<rows; i++){
+            for(int j=0;j<columns;j++){
+                matrix[i][j]=matrix[i][j]*scale;
+            }
+        }
+    }
 }
