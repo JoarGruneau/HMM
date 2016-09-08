@@ -7,9 +7,11 @@ public class HMM4 {
 
 
     public static void main(String[] args) {
-    	String file_location = "D:/Felix/Programming/Workspace/HMM4/data/sample00_4";
-    	boolean use_std_input = false;
-        readAndSolve(use_std_input, file_location);
+    	String file_location_felix = 
+                "D:/Felix/Programming/Workspace/HMM4/data/sample00_4";
+        String file_location_joar="/home/joar/Documents/AI/test.txt";
+    	boolean use_std_input = true;
+        readAndSolve(use_std_input, file_location_joar);
     }
     public static void readAndSolve(boolean use_std_input, String file_location){
     	Scanner data = null;
@@ -38,11 +40,16 @@ public class HMM4 {
 
     public static Matrix[] alphaPass(Matrix a, Matrix b, Matrix pi, int[] obs_seq){
         Matrix[] alpha_container = new Matrix[obs_seq.length];
-        alpha_container[0] = pi.multiplyElementwise(b.getColumn(obs_seq[0])); /*initialize alpha 1*/
+        double[] norm=new double[obs_seq.length];
+        alpha_container[0] = pi.multiplyColumn(b, obs_seq[0]); /*initialize alpha 1*/
+        norm[0]=alpha_container[0].sumRow(0);
         for (int i = 1; i<obs_seq.length; i++){
-            Matrix current_b_column = b.getColumn(obs_seq[i]);
-            alpha_container[i] = (alpha_container[i-1].multiply(a)).multiplyElementwise(current_b_column);
+            alpha_container[i] = alpha_container[i-1].multiply(a).
+                    multiplyColumn(b, obs_seq[i]);
+            //norm[i]=alpha_container[i].sumRow(0);
+            //System.out.println(norm[i]);
         }
+        
 
         return alpha_container;
     }
@@ -51,6 +58,7 @@ public class HMM4 {
         // To be defined. Should return Matrix[]
     	return;
     }
+
 
     public static double[][] readInputMatrix(String in_string_matrix){
         String[] listMatrix=in_string_matrix.split(" ");
@@ -130,6 +138,13 @@ class Matrix {
         }
         System.out.println(sum);
     }
+    public Matrix multiplyColumn(Matrix in_matrix, int in_column){
+        double[][] out_matrix=new double[1][columns];
+        for(int i = 0; i<columns; i++){
+            out_matrix[0][i] = this.matrix[0][i]*in_matrix.matrix[i][in_column];
+        }
+        return new Matrix(out_matrix);
+    }
     public Matrix getColumn(int column_idx){
         /*Returns the column of a given matrix at a given index as a row vector matrix*/
         double[][] out_matrix = new double[1][rows];
@@ -138,4 +153,11 @@ class Matrix {
         }
         return new Matrix(out_matrix);
     }
+    public double sumRow(int row){
+        double sum = 0;
+        for(double elem:matrix[row]){
+            sum += elem;
+        }
+        return sum;    
+    } 
 }
