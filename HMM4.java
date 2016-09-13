@@ -11,11 +11,11 @@ public class HMM4 {
         String file_location_felix = 
                 "D:/Felix/Programming/Workspace/HMM4/data/sample00_4";
         String file_location_joar="/home/joar/Documents/AI/test.txt";
-        boolean use_std_input = true;
-        readAndSolve(use_std_input, file_location_felix);
+        boolean use_std_input = false;
+        readAndSolve(use_std_input, file_location_joar);
     }
     public static void readAndSolve(boolean use_std_input, String file_location){
-        Scanner data = null;
+        Scanner data=null;
         if(use_std_input){
             data = new Scanner(System.in);
         }else{
@@ -32,37 +32,11 @@ public class HMM4 {
         Matrix pi_est=new Matrix(readInputMatrix(data.nextLine()));
         int[] obs_seq = readObservationSeq(data.nextLine());
         data.close();
-        AlphaPass alpha;
-        BetaPass beta;
-        GammaCalc gammas;
-
-        int safe_counter = 0;
-        double old_log_prob = -100000000000.0; // Initialize as highly improbable
-        double epsilon = 0.00001;
-        while(safe_counter < 10000){
-            // Calculate the alphas, betas, gammas based on current estimates of lambda
-            alpha =new AlphaPass(a_est,b_est,pi_est,obs_seq);
-            beta =new BetaPass(a_est,b_est,pi_est,obs_seq,alpha.scale_factors);
-            gammas = new GammaCalc(a_est,b_est,pi_est,obs_seq,alpha,beta);
-            a_est = estimateA(gammas);
-            b_est = estimateB(gammas, obs_seq, b_est);
-            pi_est = estimatePi(gammas);
-
-            // Later add a constraint on abs(log_prob-old_log_prob)<epsilon which breaks loop
-            double new_log_prob = alpha.log_probability;
-            if(Math.abs(old_log_prob-new_log_prob) < epsilon){
-                //System.out.println("Converged.");
-                break;
-            }else{
-                old_log_prob = new_log_prob;                
-            }
-            safe_counter += 1;
-        }
-        a_est = a_est.roundMatrixElements(6);
-        a_est.printAsString();
-        b_est = b_est.roundMatrixElements(6);
-        b_est.printAsString();
-        //System.out.println(alpha.log_probability);
+        EstimateLambda lambda=new EstimateLambda(a_est,b_est, pi_est, 
+                obs_seq, 60);
+        
+        lambda.a.printAsString();
+        lambda.b.printAsString();
     }
 
 
@@ -92,6 +66,37 @@ public class HMM4 {
         return out_array;
     }
 
+
+    
+}
+class EstimateLambda{
+    public final Matrix a;
+    public final Matrix b;
+    public EstimateLambda(Matrix a_est, Matrix b_est, Matrix pi_est, 
+            int[] obs_seq, int maxIteration ){
+        int iteration=0;
+        AlphaPass alpha =new AlphaPass(a_est,b_est,pi_est,obs_seq);
+        BetaPass beta =new BetaPass(a_est,b_est,pi_est,obs_seq,
+                alpha.scale_factors);
+        GammaCalc gammas = new GammaCalc(a_est,b_est,pi_est,obs_seq,alpha,beta);
+        
+        double old_log_prob = -100000000000.0;
+        while(iteration<maxIteration & 
+                alpha.log_probability >old_log_prob){
+            iteration++;
+            a_est = estimateA(gammas);
+            b_est = estimateB(gammas, obs_seq, b_est);
+            pi_est = estimatePi(gammas);
+            
+            alpha =new AlphaPass(a_est,b_est,pi_est,obs_seq);
+            beta =new BetaPass(a_est,b_est,pi_est,obs_seq,alpha.scale_factors);
+            gammas = new GammaCalc(a_est,b_est,pi_est,obs_seq,alpha,beta);
+        }
+        a = a_est.roundMatrixElements(6);
+        b = b_est.roundMatrixElements(6);
+        
+    }
+    
     public static Matrix estimateA(GammaCalc gammas){
         int nr_states = gammas.di_gamma[0].matrix.length;
         double[][] a_matrix_tmp = new double[nr_states][nr_states];
@@ -110,8 +115,9 @@ public class HMM4 {
         }
         return new Matrix(a_matrix_tmp);
     }
-    public static Matrix estimateB(GammaCalc gammas, int[] obs_seq, Matrix b_est){
-        int nr_states = gammas.di_gamma[0].matrix.length;
+    
+        public static Matrix estimateB(GammaCalc gammas, int[] obs_seq, Matrix b_est){
+        int nr_states = gammas.di_gamma[0].matrix[0].length;
         int nr_emissions = b_est.columns;
         double[][] b_matrix_tmp = new double[nr_states][nr_emissions];
         double current_denom;
@@ -134,7 +140,7 @@ public class HMM4 {
     public static Matrix estimatePi(GammaCalc gammas){
         return gammas.gamma[0];
     }
-    
+
 }
 class AlphaPass{
     public final double log_probability;
@@ -143,6 +149,8 @@ class AlphaPass{
     public AlphaPass(Matrix a, Matrix b, Matrix pi, int[] obs_seq){
         Matrix[] tmp_alpha_container = new Matrix[obs_seq.length];
         double[] alpha_scale=new double[obs_seq.length];
+        //pi.print();
+        //b.print();
         tmp_alpha_container[0] = pi.multiplyColumn(b, obs_seq[0]); /*initialize alpha 0*/
         alpha_scale[0]=1/tmp_alpha_container[0].sumRow(0);
         tmp_alpha_container[0].scale(alpha_scale[0]);
@@ -212,27 +220,19 @@ class GammaCalc{
             tmp_gamma_matrix = new double[1][a.columns];
             for (int i=0; i<a.rows; i++){
                 for(int j=0; j<a.columns; j++){
-                    //System.out.println(tmp_gamma_matrix[0][i]);
-                    //System.out.println(j);
                     tmp_di_gamma_matrix[i][j] = alpha.alpha_container[t].matrix[0][i]*a.matrix[i][j]*
                         b.matrix[j][obs_seq[t+1]]*beta.beta_container[t+1].matrix[0][j]/gamma_scale;
                     tmp_gamma_matrix[0][i] += tmp_di_gamma_matrix[i][j];
                 }
             }
-            di_gamma[t] = new Matrix(tmp_di_gamma_matrix);
+            di_gamma[t]=new Matrix(tmp_di_gamma_matrix);
             gamma[t] = new Matrix(tmp_gamma_matrix);
+            
         }
         // Computing gamma_(T-1), the last one
-        double denom = 0.0;
-        for (int i=0; i<a.rows; i++){
-            denom += alpha.alpha_container[obs_length-1].matrix[0][i];
-        }
-        tmp_gamma_matrix = new double[1][a.columns];
-        for (int i=0; i<a.rows; i++){
-            tmp_gamma_matrix[0][i] = alpha.alpha_container[obs_length-1].matrix[0][i]/denom;
-        }
-        gamma[obs_length-1] = new Matrix(tmp_gamma_matrix);
-        return;
+        double denom= alpha.alpha_container[obs_length-1].sumRow(0);
+        alpha.alpha_container[obs_length-1].scale(denom);
+        gamma[obs_length-1] = alpha.alpha_container[obs_length-1];
     }
 }
 
@@ -261,10 +261,12 @@ class Matrix {
       return new Matrix(out_matrix);
     }
     public Matrix multiplyElementwise(Matrix inMatrix){
-        /*Returns matrix.*inMatrix as a row vector. Both matrix and inMatrix need to be row vectors of same dimension*/
-        double[][] out_matrix = new double[rows][columns];
-        for(int j = 0; j<columns; j++){
-            out_matrix[0][j] = matrix[0][j]*inMatrix.matrix[0][j];
+        /*Returns matrix*inMatrix as a row vector. matrix need to be row vectors of same dimension*/
+        double[][] out_matrix = new double[inMatrix.rows][columns];
+        for(int i=0;i<inMatrix.rows;i++){
+            for(int j = 0; j<columns; j++){
+                out_matrix[i][j] = matrix[i][j]*inMatrix.matrix[i][j];
+            }
         }
         return new Matrix(out_matrix);
 
