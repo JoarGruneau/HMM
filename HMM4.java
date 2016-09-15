@@ -9,10 +9,10 @@ public class HMM4 {
 
     public static void main(String[] args) {
         String file_location_felix = 
-                "D:/Felix/Programming/Workspace/HMM4/data/sample00_C";
+                "D:/Felix/Programming/Workspace/HMM4/data/sample00_4";
         String file_location_joar="/home/joar/Documents/AI/test.txt";
         boolean use_std_input = false;
-        readAndSolve(use_std_input, file_location_felix);
+        readAndSolve(use_std_input, file_location_joar);
     }
     public static void readAndSolve(boolean use_std_input, String file_location){
         Scanner data=null;
@@ -31,91 +31,12 @@ public class HMM4 {
         Matrix b_est=new Matrix(readInputMatrix(data.nextLine()));
         Matrix pi_est=new Matrix(readInputMatrix(data.nextLine()));
         int[] obs_seq = readObservationSeq(data.nextLine());
-
-        // For part C of the assignment. Comment out for HMM4.
-        // The generator works as generateSpecialMatrix(nr_states, nr_states, 1:random 2:uniform 3:diagonal 4:closeToSolution), only one should be true
-        int nr_states = 3;
-        System.out.println("A estimate initially:");
-        a_est = generateSpecialMatrix(nr_states, nr_states, 3);
-        a_est.roundMatrixElements(6).print();
-        System.out.println("B estimate initially:");
-        b_est = generateSpecialMatrix(nr_states, 4, 1);
-        b_est.roundMatrixElements(6).print();
-        System.out.println("pi estimate initially:");
-        pi_est = generateSpecialMatrix(1, nr_states, 3);
-        pi_est.roundMatrixElements(6).print();
-        //obs_seq = Arrays.copyOfRange(obs_seq, 0, 100);
-
         data.close();
         EstimateLambda lambda=new EstimateLambda(a_est,b_est, pi_est, 
-                obs_seq, 1000);
+                obs_seq, 60);
         
-        /*lambda.a.printAsString();
-        lambda.b.printAsString();*/
-        System.out.println("A estimate:");
-        lambda.a.print();
-        System.out.println("B estimate");
-        lambda.b.print();
-        lambda.pi.print();
-    }
-
-    public static Matrix generateSpecialMatrix(int rows, int columns, int choice){
-        
-        if(choice == 4){ //Generate estimate close to real generators
-            if(rows == 3 && columns == 3){ // Generate A
-                double[][] tmp_matrix = {{0.699, 0.05, 0.2401}, {0.099, 0.801, 0.1}, {0.2, 0.3, 0.5}};
-                return new Matrix(tmp_matrix);
-            }else if(rows == 3 && columns == 4){
-                double[][] tmp_matrix = {{0.7,0.199,0.101,0}, {0.1,0.399,0.301,0.2}, {0,0.1,0.2,0.7}};
-                return new Matrix(tmp_matrix);
-            }else{
-                double[][] tmp_matrix = {{0.999,0.0005,0.0005}};
-                return new Matrix(tmp_matrix);
-            }
-        }
-        
-        double[][] tmp_matrix = new double[rows][columns];
-        for (int i = 0; i<rows; i++){
-            for (int j = 0; j<columns; j++){
-                //Below is random distr
-                if(choice == 1){
-                    tmp_matrix[i][j] = Math.random() + 0.2; /*math.random returns float between 0-1, add some bias to make it nonzero*/
-                }
-                // Below is uniform distribution
-                if(choice == 2){
-                    tmp_matrix[i][j] = 1.0;
-                }
-                // Below is diagonal matrix
-                if(choice == 3){
-                    if(rows == 1){ /*Creating pi*/
-                        if(j == 2){
-                            tmp_matrix[i][j] = 1.0;
-                        }
-                    }else{ /*Creating A or B*/
-                       if(i == j){
-                            tmp_matrix[i][j] = 1.0;
-                        } 
-                    }
-                }
-                
-            }
-        }
-
-        /*Scale values so its row stochastic*/
-        double row_scale;
-        for (int i = 0; i<rows; i++){
-            /*Find scale value for this row*/
-            row_scale = 0.0;
-            for (int j = 0; j<columns; j++){
-                row_scale += tmp_matrix[i][j];
-            }
-            /*Scale every element of the row*/
-            for (int k = 0; k<columns; k++){
-
-                tmp_matrix[i][k] = tmp_matrix[i][k] / row_scale;
-            }
-        }
-        return new Matrix(tmp_matrix);
+        lambda.a.printAsString();
+        lambda.b.printAsString();
     }
 
 
@@ -151,9 +72,8 @@ public class HMM4 {
 class EstimateLambda{
     public final Matrix a;
     public final Matrix b;
-    public final Matrix pi;
     public EstimateLambda(Matrix a_est, Matrix b_est, Matrix pi_est, 
-            int[] obs_seq, int max_iteration ){
+            int[] obs_seq, int maxIteration ){
         int iteration=0;
         AlphaPass alpha =new AlphaPass(a_est,b_est,pi_est,obs_seq);
         BetaPass beta =new BetaPass(a_est,b_est,pi_est,obs_seq,
@@ -161,13 +81,9 @@ class EstimateLambda{
         GammaCalc gammas = new GammaCalc(a_est,b_est,pi_est,obs_seq,alpha,beta);
         
         double old_log_prob = -100000000000.0;
-        /*while(iteration<max_iteration && 
-                alpha.log_probability >old_log_prob){*/
-        double epsilon = 0.001;
-        while(iteration < max_iteration && 
-                Math.abs(alpha.log_probability-old_log_prob)>epsilon){
+        while(iteration<maxIteration & 
+                alpha.log_probability >old_log_prob){
             iteration++;
-            old_log_prob = alpha.log_probability;
             a_est = estimateA(gammas);
             b_est = estimateB(gammas, obs_seq, b_est);
             pi_est = estimatePi(gammas);
@@ -178,10 +94,6 @@ class EstimateLambda{
         }
         a = a_est.roundMatrixElements(6);
         b = b_est.roundMatrixElements(6);
-        pi = pi_est.roundMatrixElements(6);
-        String print_str = "Converged after " + iteration + " iterations.";
-        System.out.println(print_str);
-        System.out.println(old_log_prob);
         
     }
     
@@ -198,16 +110,13 @@ class EstimateLambda{
                     tmp_a_ij += gammas.di_gamma[t].matrix[i][j];
                     current_denom += gammas.gamma[t].matrix[0][i];
                 }
-                if(current_denom == 0){ /*avoid division by 0*/
-                    current_denom = 0.000000001;
-                }
                 a_matrix_tmp[i][j] = tmp_a_ij / current_denom;
             }
         }
         return new Matrix(a_matrix_tmp);
     }
     
-    public static Matrix estimateB(GammaCalc gammas, int[] obs_seq, Matrix b_est){
+        public static Matrix estimateB(GammaCalc gammas, int[] obs_seq, Matrix b_est){
         int nr_states = gammas.di_gamma[0].matrix[0].length;
         int nr_emissions = b_est.columns;
         double[][] b_matrix_tmp = new double[nr_states][nr_emissions];
@@ -222,9 +131,6 @@ class EstimateLambda{
                         tmp_b_ij += gammas.gamma[t].matrix[0][i];
                     }
                     current_denom += gammas.gamma[t].matrix[0][i];
-                }
-                if(current_denom == 0){ /*avoid division by 0*/
-                    current_denom = 0.000000001;
                 }
                 b_matrix_tmp[i][j] = tmp_b_ij / current_denom;
             }
@@ -243,24 +149,15 @@ class AlphaPass{
     public AlphaPass(Matrix a, Matrix b, Matrix pi, int[] obs_seq){
         Matrix[] tmp_alpha_container = new Matrix[obs_seq.length];
         double[] alpha_scale=new double[obs_seq.length];
-        double current_row_sum;
         //pi.print();
         //b.print();
         tmp_alpha_container[0] = pi.multiplyColumn(b, obs_seq[0]); /*initialize alpha 0*/
-        current_row_sum = tmp_alpha_container[0].sumRow(0);
-        if(current_row_sum == 0){ //Avoid division by 0
-            current_row_sum = 0.0000001;
-        }
-        alpha_scale[0]=1/current_row_sum;
+        alpha_scale[0]=1/tmp_alpha_container[0].sumRow(0);
         tmp_alpha_container[0].scale(alpha_scale[0]);
         for (int i = 1; i<obs_seq.length; i++){
             tmp_alpha_container[i] = tmp_alpha_container[i-1].multiply(a).
                     multiplyColumn(b, obs_seq[i]);
-            current_row_sum = tmp_alpha_container[i].sumRow(0);
-            if(current_row_sum == 0){ //Avoid division by 0
-                current_row_sum = 0.0000001;
-            }
-            alpha_scale[i]=1/current_row_sum;
+            alpha_scale[i]=1/tmp_alpha_container[i].sumRow(0);
             tmp_alpha_container[i].scale(alpha_scale[i]);
             
         }
@@ -310,20 +207,14 @@ class GammaCalc{
         di_gamma = new Matrix[obs_length-1];
         gamma = new Matrix[obs_length];
         for(int t=0; t<obs_length-1; t++){
-            // Calculating gamma_scale for current 
-            // i is current state
-            // j is the next state
+            // Calculating gamma_scale for current t
             gamma_scale = 0.0;
-            for (int i = 0; i < a.rows; i++){
-                for(int j = 0; j<a.columns; j++){ 
+            for (int i = 0; i < a.rows; i++){ /*i is current state*/
+                for(int j = 0; j<a.columns; j++){ /*j is the next state*/
                     gamma_scale += alpha.alpha_container[t].matrix[0][i]*a.matrix[i][j]*
                         b.matrix[j][obs_seq[t+1]]*beta.beta_container[t+1].matrix[0][j];
                 }
             }
-            if(gamma_scale == 0){ /*avoid division by 0*/
-                gamma_scale = 0.000000001;
-            }
-            /*gamma_scale = 1.0;*/
             // Calculating the gamma matrices
             tmp_di_gamma_matrix = new double[a.rows][a.columns];
             tmp_gamma_matrix = new double[1][a.columns];
@@ -339,12 +230,8 @@ class GammaCalc{
             
         }
         // Computing gamma_(T-1), the last one
-        double denom= alpha.alpha_container[obs_length-1].sumRow(0); // SHOULDNT THIS BE 1/ ?
-        if(denom == 0){
-            denom = 0.000001;
-        }
-        alpha.alpha_container[obs_length-1].scale(1/denom);
-        
+        double denom= alpha.alpha_container[obs_length-1].sumRow(0);
+        alpha.alpha_container[obs_length-1].scale(denom);
         gamma[obs_length-1] = alpha.alpha_container[obs_length-1];
     }
 }
@@ -400,7 +287,6 @@ class Matrix {
         for(double[] row: matrix){
             System.out.println(Arrays.toString(row));
         }
-        System.out.println("");
     }
     public void printSum(){
         /*Prints the sum of the row elements in a row vector*/
@@ -450,15 +336,11 @@ class Matrix {
         return new Matrix(out_matrix);
     }
     public void scale(double scale){
-        if(Double.isNaN(scale)){ /*corresponds to division by 0*/
-            scale = 10000000000.0;
-        }
         for(int i=0; i<rows; i++){
             for(int j=0;j<columns;j++){
                 matrix[i][j]=matrix[i][j]*scale;
             }
         }
-        /*System.out.println(scale);*/
     }
     public Matrix roundMatrixElements(int nr_digits){
         String decimal_format_string = "#.";
@@ -469,11 +351,7 @@ class Matrix {
         double[][] tmp_matrix = new double[rows][columns];
         for(int i=0; i<rows; i++){
             for(int j=0;j<columns;j++){
-                if(Double.isNaN(matrix[i][j])){
-                    tmp_matrix[i][j] = matrix[i][j];
-                }else{
-                    tmp_matrix[i][j] = Double.parseDouble(new_format.format(matrix[i][j]));
-                }
+                tmp_matrix[i][j] = Double.parseDouble(new_format.format(matrix[i][j]));
             }
         }
         return new Matrix(tmp_matrix);
