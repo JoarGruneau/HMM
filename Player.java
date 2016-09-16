@@ -24,12 +24,35 @@ class Player {
          * Here you should write your clever algorithms to get the best action.
          * This skeleton never shoots.
          */
+        String printstr = "";
+        int nr_birds = pState.getNumBirds();
+        Bird bird;
+        for(int i = 0; i< nr_birds; i++){
+            printstr = "Bird "+ i + ", observation sequence: ";
+            bird = pState.getBird(i);
+            for(int j = 0; j<bird.getSeqLength();j++){
+                printstr += bird.getObservation(j) + " ";
+            }
+            if(bird.isAlive()){
+                System.err.println(printstr);
+                return new Action(i, Constants.MOVE_DOWN);
+
+            }
+
+        }
+        return cDontShoot;
+        
 
         // This line chooses not to shoot.
-        return cDontShoot;
+        //return cDontShoot;
+        /*if(nr_birds != 0){
+            for(int i = 0; i< nr_birds; i++){
+                return new Action(i, Constants.MOVE_RIGHT);
+            }
+        }*/
 
         // This line would predict that bird 0 will move right and shoot at it.
-        // return Action(0, MOVE_RIGHT);
+        //return new Action(0, Constants.MOVE_RIGHT);
     }
 
     /**
